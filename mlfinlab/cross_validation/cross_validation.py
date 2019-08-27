@@ -194,17 +194,18 @@ class MyPipeline(Pipeline):
 
         return super(MyPipeline, self).fit(X, y, **fit_params)
 
+
 # ============================================
 # Add the loguniform distribution
 
-class logUniformGenerator(rv_continuous):
+class LogUniformGenerator(rv_continuous):
     # Random numbers log-uniformly distributed between 1 and e
     def _cdf(self, x):
         return np.log(x/self.a) / np.log(self.b/self.a)
 
 
-def log_uniform(a=1, b=np.exp(1)):
-    return logUniformGenerator(a=a, b=b, name='logUniform')
+def log_uniform(a=1.0, b=np.exp(1)):
+    return LogUniformGenerator(a=a, b=b, name='logUniform')
 
 
 if __name__ == '__main__':
