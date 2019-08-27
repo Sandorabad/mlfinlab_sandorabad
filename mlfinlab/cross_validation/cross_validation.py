@@ -4,9 +4,14 @@ Implements the book chapter 7 on Cross Validation for financial data.
 
 import pandas as pd
 import numpy as np
+from scipy.stats import rv_continuous, kstest
 
+from sklearn.ensemble import BaggingClassifier
 from sklearn.metrics import log_loss, accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, GridSearchCV, RandomizedSearchCV
+from sklearn.pipeline import Pipeline
+
+import matplotlib.pyplot as plt
 
 
 def ml_get_train_times(info_sets: pd.Series, test_times: pd.Series) -> pd.Series:
@@ -133,3 +138,83 @@ def ml_cross_val_score(classifier, X, y, cv_gen, sample_weight=None, scoring='ne
             score = scoring_func(y.iloc[test], pred, sample_weight=sample_weight[test])
         ret_scores.append(score)
     return np.array(ret_scores)
+
+
+def clf_hyper_fit(feat, lbl, t1, pipe_clf, param_grid, cv=3, bagging=(0.0, None, 1.0), n_jobs=-1, random_iterations=0,
+                  pct_embargo=0.0, **fit_params):
+    """
+    Snippet 9.1 & 9.3, page 130 & 132, Grid Search & Randomized Search with Purged K-Fold Cross-Validation.
+
+    """
+    if set(lbl.values) == {0, 1}:
+        scoring = 'f1'  # F1 for meta labelling
+    else:
+        scoring = 'neg_log_loss'  # Symmetric towards all cases
+
+    # Step 1) Hyperparameter search, on train data
+    inner_cv = PurgedKFold(n_splits=cv, info_sets=t1, pct_embargo=pct_embargo)  # Purged
+
+    if random_iterations == 0:
+        gs = GridSearchCV(estimator=pipe_clf, param_grid=param_grid, scoring=scoring, cv=inner_cv, n_jobs=n_jobs,
+                          iid=False)
+    else:
+        gs = RandomizedSearchCV(estimator=pipe_clf, param_distributions=param_grid, scoring=scoring, cv=inner_cv,
+                                n_jobs=n_jobs, iid=False, n_iter=random_iterations)
+    gs = gs.fit(feat, lbl, **fit_params).best_estimator_  # Pipeline
+
+    # Step 2.) Fit validated model on the entirety of the data
+    if bagging[1] > 0:
+        gs = BaggingClassifier(base_estimator=MyPipeline(gs.steps), n_estimators=int(bagging[0]),
+                               max_samples=float(bagging[1]), max_features=float(bagging[2]), n_jobs=n_jobs)
+        gs = gs.fit(feat, lbl, sample_weight=fit_params[gs.base_estimator.steps[-1][0]+'__sample_weight'])
+        gs = Pipeline([('bag', gs)])
+
+    return gs
+
+
+class MyPipeline(Pipeline):
+    """
+    Snippet 9.2, page 131, An Enhanced Pipeline Class
+
+    This example introduces nicely one limitation of sklearn’s Pipelines : Their fit method does not expect a
+    sample_weight argument. Instead, it expects a fit_params keyworded argument. That is a bug that has been reported
+    in GitHub; however, it may take some time to fix it, as it involves rewriting and testing much functionality.
+
+    Until then, feel free to use the workaround in Snippet 9.2. It creates a new class, called MyPipeline, which
+    inherits all methods from sklearn’s Pipeline. It overwrites the inherited fit method with a new one that handles
+    the argument sample_weight, after which it redirects to the parent class.
+
+    If you are not familiar with this technique for expanding classes, you may want to read this introductory
+    Stackoverflow post: http://stackoverflow.com/questions/ 576169/understanding-python-super-with-init-methods.
+    """
+
+    def fit(self, X, y, sample_weight=None, **fit_params):
+        if sample_weight is not None:
+            fit_params[self.steps[-1][0] + '__sample_weight'] = sample_weight
+
+        return super(MyPipeline, self).fit(X, y, **fit_params)
+
+# ============================================
+# Add the loguniform distribution
+
+class logUniformGenerator(rv_continuous):
+    # Random numbers log-uniformly distributed between 1 and e
+    def _cdf(self, x):
+        return np.log(x/self.a) / np.log(self.b/self.a)
+
+
+def log_uniform(a=1, b=np.exp(1)):
+    return logUniformGenerator(a=a, b=b, name='logUniform')
+
+
+if __name__ == '__main__':
+    # Code regarding log_uniform
+    a, b, size = 1E-3, 1E3, 10000
+    vals = log_uniform(a=a, b=b).rvs(size=size)
+    print(kstest(rvs=np.log(vals), cdf='uniform', args=(np.log(a), np.log(b / a)), N=size))
+    print(pd.Series(vals).describe())
+    plt.subplot(121)
+    pd.Series(np.log(vals)).hist()
+    plt.subplot(122)
+    pd.Series(vals).hist()
+    plt.show()
