@@ -5,6 +5,7 @@ approach to mathematical portfolio oversight: The EF3M algorithm." Quantitative 
 """
 
 import sys
+from typing import Union
 from multiprocessing import cpu_count, Pool
 import numpy as np
 import pandas as pd
@@ -29,7 +30,9 @@ class M2N:
      num_workers to all cores.
 
     """
-    def __init__(self, moments, epsilon=10**-5, factor=5, n_runs=1, variant=1, max_iter=100_000, num_workers=-1):
+
+    def __init__(self, moments: list, epsilon: float = 10 ** -5, factor: float = 5, n_runs: int = 1, variant: int = 1,
+                 max_iter: int = 100_000, num_workers: int = -1):
         """
         Constructor
 
@@ -48,7 +51,7 @@ class M2N:
         """
         # Set fitting parameters in constructor.
         self.epsilon = epsilon
-        self. factor = factor
+        self.factor = factor
         self.n_runs = n_runs
         self.variant = variant
         self.max_iter = max_iter
@@ -57,9 +60,9 @@ class M2N:
         self.moments = moments
         self.new_moments = [0 for _ in range(5)]  # Initialize the new moment list to zeroes.
         self.parameters = [0 for _ in range(5)]  # Initialize the parameter list to zeroes.
-        self.error = sum([moments[i]**2 for i in range(len(moments))])
+        self.error = sum([moments[i] ** 2 for i in range(len(moments))])
 
-    def fit(self, mu_2):
+    def fit(self, mu_2: float) -> None:
         """
         Fits and the parameters that describe the mixture of the 2 Normal distributions for a given set of initial
         parameter guesses.
@@ -83,7 +86,7 @@ class M2N:
 
             parameters = parameters_new.copy()
             self.get_moments(parameters)
-            error = sum([(self.moments[i] - self.new_moments[i])**2 for i in range(len(self.new_moments))])
+            error = sum([(self.moments[i] - self.new_moments[i]) ** 2 for i in range(len(self.new_moments))])
             if error < self.error:
                 # Update with new best parameters, error.
                 self.parameters = parameters
@@ -103,7 +106,7 @@ class M2N:
         self.parameters = parameters
         return None
 
-    def get_moments(self, parameters, return_result=False):
+    def get_moments(self, parameters: list, return_result: bool = False) -> None:
         """
         Calculates and returns the first five (1...5) raw moments corresponding to the newly estimated parameters.
 
@@ -115,13 +118,14 @@ class M2N:
         u_1, u_2, s_1, s_2, p_1 = parameters  # Expanded mixture parameters to individual variables for clarity.
         p_2 = 1 - p_1  # Explicitly state p_2 for symmetry.
         m_1 = p_1 * u_1 + p_2 * u_2  # Eq. (6)
-        m_2 = p_1 * (s_1**2 + u_1**2) + p_2 * (s_2**2 + u_2**2)  # Eq. (7)
-        m_3 = p_1 * (3 * s_1**2 * u_1 + u_1**3) + p_2 * (3 * s_2**2 * u_2 + u_2**3)  # Eq. (8)
+        m_2 = p_1 * (s_1 ** 2 + u_1 ** 2) + p_2 * (s_2 ** 2 + u_2 ** 2)  # Eq. (7)
+        m_3 = p_1 * (3 * s_1 ** 2 * u_1 + u_1 ** 3) + p_2 * (3 * s_2 ** 2 * u_2 + u_2 ** 3)  # Eq. (8)
         # Eq. (9)
-        m_4 = p_1 * (3 * s_1**4 + 6 * s_1**2 * u_1**2 + u_1**4) + p_2 * (3 * s_2**4 + 6 * s_2**2 * u_2**2 + u_2**4)
+        m_4 = p_1 * (3 * s_1 ** 4 + 6 * s_1 ** 2 * u_1 ** 2 + u_1 ** 4) + p_2 * (
+                3 * s_2 ** 4 + 6 * s_2 ** 2 * u_2 ** 2 + u_2 ** 4)
         # Eq (10)
-        m_5 = p_1 * (15 * s_1**4 * u_1 + 10 * s_1**2 * u_1**3 + u_1**5) + p_2 *\
-            (15 * s_2**4 * u_2 + 10 * s_2**2 * u_2**3 + u_2**5)
+        m_5 = p_1 * (15 * s_1 ** 4 * u_1 + 10 * s_1 ** 2 * u_1 ** 3 + u_1 ** 5) + p_2 * \
+              (15 * s_2 ** 4 * u_2 + 10 * s_2 ** 2 * u_2 ** 3 + u_2 ** 5)
 
         if return_result:
             return [m_1, m_2, m_3, m_4, m_5]
@@ -129,7 +133,7 @@ class M2N:
         self.new_moments = [m_1, m_2, m_3, m_4, m_5]
         return None
 
-    def iter_4(self, mu_2, p_1):
+    def iter_4(self, mu_2:float, p_1:float) -> list:
         """
         Evaluation of the set of equations that make up variant #1 of the EF3M algorithm (fitting using the first
         four moments).
@@ -155,29 +159,31 @@ class M2N:
                 # Validity check 1: Check for divide-by-zero.
                 break
 
-            sigma_2_squared = ((m_3 + 2 * p_1 * mu_1**3 + (p_1 - 1) * mu_2**3 - 3 * mu_1 * (m_2 + mu_2**2 * (p_1-1))) /
-                               (3*(1-p_1)*(mu_2-mu_1)))
+            sigma_2_squared = (
+                    (m_3 + 2 * p_1 * mu_1 ** 3 + (p_1 - 1) * mu_2 ** 3 - 3 * mu_1 * (m_2 + mu_2 ** 2 * (p_1 - 1))) /
+                    (3 * (1 - p_1) * (mu_2 - mu_1)))
             if sigma_2_squared < 0:
                 # Validity check 2: Prevent potential complex values.
                 break
 
-            sigma_2 = sigma_2_squared**0.5
+            sigma_2 = sigma_2_squared ** 0.5
             # Calculate sigma_1, Equation (23)
-            sigma_1_squared = ((m_2 - sigma_2**2 - mu_2**2) / p_1 + sigma_2**2 + mu_2**2 - mu_1**2)
+            sigma_1_squared = ((m_2 - sigma_2 ** 2 - mu_2 ** 2) / p_1 + sigma_2 ** 2 + mu_2 ** 2 - mu_1 ** 2)
 
             if sigma_1_squared < 0:
                 # Validity check 3: Prevent potential complex values.
                 break
-            sigma_1 = sigma_1_squared**0.5
+            sigma_1 = sigma_1_squared ** 0.5
 
             # Adjust guess for p_1, Equation (25)
-            p_1_deno = (3 * (sigma_1**4 - sigma_2**4) + 6 * (sigma_1**2 * mu_1**2 - sigma_2**2 * mu_2**2) + mu_1**4 -
-                        mu_2**4)
+            p_1_deno = (3 * (sigma_1 ** 4 - sigma_2 ** 4) + 6 * (
+                    sigma_1 ** 2 * mu_1 ** 2 - sigma_2 ** 2 * mu_2 ** 2) + mu_1 ** 4 -
+                        mu_2 ** 4)
             if p_1_deno == 0:
                 # Validity check 5: Break if about to divide by zero.
                 break
 
-            p_1 = (m_4 - 3*sigma_2**4 - 6*sigma_2**2*mu_2**2 - mu_2**4) / p_1_deno
+            p_1 = (m_4 - 3 * sigma_2 ** 4 - 6 * sigma_2 ** 2 * mu_2 ** 2 - mu_2 ** 4) / p_1_deno
             if (p_1 < 0) or (p_1 > 1):
                 # Validity check 6: The probability must be between zero and one.
                 break
@@ -194,7 +200,7 @@ class M2N:
 
         return param_list
 
-    def iter_5(self, mu_2, p_1):
+    def iter_5(self, mu_2:float, p_1:float) -> list:
         """
         Evaluation of the set of equations that make up variant #2 of the EF3M algorithm (fitting using the first five
         moments).
@@ -218,41 +224,43 @@ class M2N:
                 break
 
             # Calculate sigma_2, Equation (24).
-            sigma_2_squared = ((m_3 + 2 * p_1 * mu_1**3 + (p_1-1) * mu_2**3 - 3 * mu_1 * (m_2 + mu_2**2 * (p_1-1))) /
-                               (3*(1-p_1)*(mu_2-mu_1)))
+            sigma_2_squared = (
+                    (m_3 + 2 * p_1 * mu_1 ** 3 + (p_1 - 1) * mu_2 ** 3 - 3 * mu_1 * (m_2 + mu_2 ** 2 * (p_1 - 1))) /
+                    (3 * (1 - p_1) * (mu_2 - mu_1)))
             if sigma_2_squared < 0:
                 # Validity check 2: check for upcoming complex numbers.
                 break
-            sigma_2 = sigma_2_squared**0.5
+            sigma_2 = sigma_2_squared ** 0.5
 
             # Calculate sigma_1, Equation (23).
-            sigma_1_squared = ((m_2 - sigma_2**2 - mu_2**2)/p_1 + sigma_2**2 + mu_2**2 - mu_1**2)
+            sigma_1_squared = ((m_2 - sigma_2 ** 2 - mu_2 ** 2) / p_1 + sigma_2 ** 2 + mu_2 ** 2 - mu_1 ** 2)
             if sigma_1_squared < 0:
                 # Validity check 3: check for upcoming complex numbers.
                 break
-            sigma_1 = sigma_1_squared**0.5
+            sigma_1 = sigma_1_squared ** 0.5
 
             # Adjust the guess for mu_2, Equation (27).
             if (1 - p_1) < 1e-4:
                 # Validity check 5: break to prevent divide-by-zero.
                 break
 
-            a_1_squared = (6 * sigma_2**4 + (m_4 - p_1 * (3 * sigma_1**4 + 6 * sigma_1**2 * mu_1**2 + mu_1**4)) /
-                           (1-p_1))
+            a_1_squared = (
+                    6 * sigma_2 ** 4 + (m_4 - p_1 * (3 * sigma_1 ** 4 + 6 * sigma_1 ** 2 * mu_1 ** 2 + mu_1 ** 4)) /
+                    (1 - p_1))
             if a_1_squared < 0:
                 # Validity check 6: break to avoid taking the square root of negative number.
                 break
 
-            a_1 = a_1_squared**0.5
-            mu_2_squared = (a_1 - 3 * sigma_2**2)
+            a_1 = a_1_squared ** 0.5
+            mu_2_squared = (a_1 - 3 * sigma_2 ** 2)
             if np.iscomplex(mu_2_squared) or mu_2_squared < 0:
                 # Validity check 7: break to avoid complex numbers.
                 break
 
-            mu_2 = mu_2_squared**0.5
+            mu_2 = mu_2_squared ** 0.5
             # Adjust guess for p_1, Equation (28, 29).
-            a_2 = 15 * sigma_1**4 * mu_1 + 10 * sigma_1**2 * mu_1**3 + mu_1**5
-            b_2 = 15 * sigma_2**4 * mu_2 + 10 * sigma_2**2 * mu_2**3 + mu_2**5
+            a_2 = 15 * sigma_1 ** 4 * mu_1 + 10 * sigma_1 ** 2 * mu_1 ** 3 + mu_1 ** 5
+            b_2 = 15 * sigma_2 ** 4 * mu_2 + 10 * sigma_2 ** 2 * mu_2 ** 3 + mu_2 ** 5
             if (a_2 - b_2) == 0:
                 # Validity check 8: break to prevent divide-by-zero.
                 break
@@ -274,7 +282,7 @@ class M2N:
 
         return param_list
 
-    def single_fit_loop(self, epsilon=0):
+    def single_fit_loop(self, epsilon:int=0) -> pd.DataFrame:
         """
         A single scan through the list of mu_2 values, cataloging the successful fittings in a DataFrame.
 
@@ -284,10 +292,11 @@ class M2N:
         # Reset parameters and error for each single_fit_loop.
         self.epsilon = epsilon if epsilon != 0 else self.epsilon
         self.parameters = [0 for _ in range(5)]  # Initialize the parameter list.
-        self.error = sum([self.moments[i]**2 for i in range(len(self.moments))])
+        self.error = sum([self.moments[i] ** 2 for i in range(len(self.moments))])
 
-        std_dev = centered_moment(self.moments, 2)**0.5
-        mu_2 = [float(i) * self.epsilon * self.factor * std_dev + self.moments[0] for i in range(1, int(1/self.epsilon))]
+        std_dev = centered_moment(self.moments, 2) ** 0.5
+        mu_2 = [float(i) * self.epsilon * self.factor * std_dev + self.moments[0] for i in
+                range(1, int(1 / self.epsilon))]
         err_min = self.error
 
         d_results = {}
@@ -302,7 +311,7 @@ class M2N:
 
         return pd.DataFrame.from_dict(d_results)
 
-    def mp_fit(self):
+    def mp_fit(self) -> pd.DataFrame:
         """
         Parallelized implementation of the 'single_fit_loop' method. Makes use of dask.delayed to execute multiple
         calls of 'single_fit_loop' in parallel.
@@ -319,8 +328,8 @@ class M2N:
         max_prog_bar_len = 25
         for i, out_i in enumerate(output_list, 1):
             df_list.append(out_i)
-            num_fill = int((i/self.n_runs) * max_prog_bar_len)
-            prog_bar_string = '|' + num_fill*'#' + (max_prog_bar_len-num_fill)*' ' + '|'
+            num_fill = int((i / self.n_runs) * max_prog_bar_len)
+            prog_bar_string = '|' + num_fill * '#' + (max_prog_bar_len - num_fill) * ' ' + '|'
             sys.stderr.write(f'\r{prog_bar_string} Completed {i} of {self.n_runs} fitting rounds.')
         # Close and clean up pool.
         pool.close()
@@ -331,7 +340,7 @@ class M2N:
 
 
 # === Helper functions, outside the M2N class. === #
-def centered_moment(moments, order):
+def centered_moment(moments:list, order:int) -> float:
     """
     Compute a single moment of a specific order about the mean (centered) given moments about the origin (raw).
 
@@ -346,12 +355,12 @@ def centered_moment(moments, order):
             a_1 = 1
         else:
             a_1 = moments[order - j - 1]
-        moment_c += (-1)**j * combin * moments[0]**j * a_1
+        moment_c += (-1) ** j * combin * moments[0] ** j * a_1
 
     return moment_c
 
 
-def raw_moment(central_moments, dist_mean):
+def raw_moment(central_moments:list, dist_mean:float) -> list:
     """
     Calculates a list of raw moments given a list of central moments.
 
@@ -364,14 +373,14 @@ def raw_moment(central_moments, dist_mean):
     for n_i in range(2, len(central_moments)):
         moment_n_parts = []
         for k in range(n_i + 1):
-            sum_part = comb(n_i, k) * central_moments[k] * dist_mean**(n_i - k)
+            sum_part = comb(n_i, k) * central_moments[k] * dist_mean ** (n_i - k)
             moment_n_parts.append(sum_part)
         moment_n = sum(moment_n_parts)
         raw_moments.append(moment_n)
     return raw_moments
 
 
-def most_likely_parameters(data, ignore_columns='error', res=10_000):
+def most_likely_parameters(data:pd.DataFrame, ignore_columns:Union[str, list]='error', res:int=10_000) -> dict:
     """
     Determines the most likely parameter estimate using a KDE from the DataFrame of the results of the fit from the
     M2N object.

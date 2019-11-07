@@ -3,6 +3,7 @@ This module contains functionality for determining bet sizes for investments bas
 These implementations are based on bet sizing approaches described in Chapter 10.
 """
 
+from typing import Union
 import numpy as np
 import pandas as pd
 from scipy.stats import norm, moment
@@ -12,7 +13,8 @@ from mlfinlab.bet_sizing.ch10_snippets import get_w, get_target_pos, limit_price
 from mlfinlab.bet_sizing.ef3m import M2N, raw_moment, most_likely_parameters
 
 
-def bet_size_probability(events, prob, num_classes, pred=None, step_size=0.0, average_active=False, num_threads=1):
+def bet_size_probability(events: pd.DataFrame, prob: pd.Series, num_classes: int, pred: pd.Series = None,
+                         step_size: float = 0.0, average_active: bool = False, num_threads: int = 1) -> pd.Series:
     """
     Calculates the bet size using the predicted probability. Note that if 'average_active' is True, the returned
     pandas.Series will be twice the length of the original since the average is calculated at each bet's open and close.
@@ -42,8 +44,10 @@ def bet_size_probability(events, prob, num_classes, pred=None, step_size=0.0, av
     return signal_1
 
 
-def bet_size_dynamic(current_pos, max_pos, market_price, forecast_price, cal_divergence=10, cal_bet_size=0.95,
-                     func='sigmoid'):
+def bet_size_dynamic(current_pos: Union[pd.Series, int], max_pos: Union[pd.Series, int],
+                     market_price: Union[pd.Series, float], forecast_price: Union[pd.Series, float],
+                     cal_divergence: float = 10, cal_bet_size: float = 0.95,
+                     func: str = 'sigmoid') -> pd.DataFrame:
     """
     Calculates the bet sizes, target position, and limit price as the market price and forecast price fluctuate.
     The current position, maximum position, market price, and forecast price can be passed as separate pandas.Series
@@ -70,12 +74,12 @@ def bet_size_dynamic(current_pos, max_pos, market_price, forecast_price, cal_div
     # Compute the break even limit price.
     events_0['l_p'] = events_0.apply(lambda x: limit_price(x.t_pos, x.pos, x.f, w_param, x.max_pos, func), axis=1)
     # Compute the bet size.
-    events_0['bet_size'] = events_0.apply(lambda x: bet_size(w_param, x.f-x.m_p, func), axis=1)
+    events_0['bet_size'] = events_0.apply(lambda x: bet_size(w_param, x.f - x.m_p, func), axis=1)
 
     return events_0[['bet_size', 't_pos', 'l_p']]
 
 
-def bet_size_budget(events_t1, sides):
+def bet_size_budget(events_t1: pd.Series, sides: pd.Series) -> pd.DataFrame:
     """
     Calculates a bet size from the bet sides and start and end times. These sequences are used to determine the
     number of concurrent long and short bets, and the resulting strategy-independent bet sizes are the difference
@@ -99,8 +103,9 @@ def bet_size_budget(events_t1, sides):
     return events_1
 
 
-def bet_size_reserve(events_t1, sides, fit_runs=100, epsilon=1e-5, factor=5, variant=2, max_iter=10_000,
-                     num_workers=1, return_parameters=False):
+def bet_size_reserve(events_t1: pd.Series, sides: pd.Series, fit_runs: int = 100, epsilon: float = 1e-5,
+                     factor: int = 5, variant: int = 2, max_iter: int = 10_000,
+                     num_workers: int = 1, return_parameters: bool = False) -> pd.DataFrame:
     """
     Calculates the bet size from bet sides and start and end times. These sequences are used to determine the number
     of concurrent long and short bets, and the difference between the two at each time step, c_t. A mixture of two
@@ -148,7 +153,7 @@ def bet_size_reserve(events_t1, sides, fit_runs=100, epsilon=1e-5, factor=5, var
     return events_active
 
 
-def confirm_and_cast_to_df(d_vars):
+def confirm_and_cast_to_df(d_vars: dict) -> pd.DataFrame:
     """
     Accepts either pandas.Series (with a common index) or integer/float values, casts all non-pandas.Series values
     to Series, and returns a pandas.DataFrame for further calculations. This is a helper function to the
@@ -190,7 +195,7 @@ def confirm_and_cast_to_df(d_vars):
     return events
 
 
-def get_concurrent_sides(events_t1, sides):
+def get_concurrent_sides(events_t1: pd.Series, sides: pd.Series) -> pd.DataFrame:
     """
     Given the side of the position along with its start and end timestamps, this function returns two pandas.Series
     indicating the number of concurrent long and short bets at each timestamp.
@@ -202,22 +207,24 @@ def get_concurrent_sides(events_t1, sides):
     :return: (pandas.DataFrame) The 'events_t1' and 'sides' arguments as columns, with two additional columns
      indicating the number of concurrent active long and active short bets at each timestamp.
     """
-    events_0 = pd.DataFrame({'t1':events_t1, 'side':sides})
+    events_0 = pd.DataFrame({'t1': events_t1, 'side': sides})
     events_0['active_long'] = 0
     events_0['active_short'] = 0
 
     for idx in events_0.index:
         # A bet side greater than zero indicates a long position.
-        df_long_active_idx = set(events_0[(events_0.index <= idx) & (events_0['t1'] > idx) & (events_0['side'] > 0)].index)
+        df_long_active_idx = set(
+            events_0[(events_0.index <= idx) & (events_0['t1'] > idx) & (events_0['side'] > 0)].index)
         events_0.loc[idx, 'active_long'] = len(df_long_active_idx)
         # A bet side less than zero indicates a short position.
-        df_short_active_idx = set(events_0[(events_0.index <= idx) & (events_0['t1'] > idx) & (events_0['side'] < 0)].index)
+        df_short_active_idx = set(
+            events_0[(events_0.index <= idx) & (events_0['t1'] > idx) & (events_0['side'] < 0)].index)
         events_0.loc[idx, 'active_short'] = len(df_short_active_idx)
 
     return events_0
 
 
-def cdf_mixture(x_val, parameters):
+def cdf_mixture(x_val: float, parameters: list) -> float:
     """
     The cumulative distribution function of a mixture of 2 normal distributions, evaluated at x_val.
 
@@ -226,10 +233,10 @@ def cdf_mixture(x_val, parameters):
     :return: (float) CDF of the mixture.
     """
     mu_1, mu_2, sigma_1, sigma_2, p_1 = parameters  # Parameters reassigned for clarity.
-    return p_1 * norm.cdf(x_val, mu_1, sigma_1) + (1-p_1) * norm.cdf(x_val, mu_2, sigma_2)
+    return p_1 * norm.cdf(x_val, mu_1, sigma_1) + (1 - p_1) * norm.cdf(x_val, mu_2, sigma_2)
 
 
-def single_bet_size_mixed(c_t, parameters):
+def single_bet_size_mixed(c_t: int, parameters: list) -> float:
     """
     Returns the single bet size based on the description provided in question 10.4(c), provided the difference in
     concurrent long and short positions, c_t, and the fitted parameters of the mixture of two Gaussain distributions.
