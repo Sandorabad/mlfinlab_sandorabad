@@ -39,7 +39,7 @@ def get_all_weights(k, n):
     determine the set of all fractional allocation vectors (i.e. sum of
     absolute weights equals 1) by finding all combinations of
     negative and positive allocation weightings.
-    
+
     :param k: (int) Units of capital to allocate.
     :param n: (int) Number of assets.
     :return: (numpy.array) Set of all fractional allocations across 'n' assets.
@@ -47,7 +47,7 @@ def get_all_weights(k, n):
     # 1) Generate partitions using 'pigeon_hole()'.
     parts = pigeon_hole(k, n)
     w = None
-    
+
     # 2) Go through the partitions.
     for part_ in parts:
         w_ = np.array(part_) / float(k)
@@ -65,7 +65,7 @@ def get_all_weights(k, n):
 def evaluate_t_costs(w, params):
     """
     Compute t-costs of a particular trajectory.
-    
+
     :param w: (numpy.array) Matrix of all combinations of weights.
     :param params: (list) A list of dictionaries that contain values
      for ('c', 'mean', 'cov'), where 'c' is the relative transaction costs,
@@ -74,9 +74,9 @@ def evaluate_t_costs(w, params):
     """
     t_cost = np.zeros(w.shape[1])
     w_ = np.zeros(shape=w.shape[0])
-    for i in range(tcost.shape[0]):
+    for i in range(t_cost.shape[0]):
         c_ = params[i]['c']
-        t_cost[i] = (c_ * abs(w[:, i] - w_)=**.5).sum()
+        t_cost[i] = (c_ * abs(w[:, i] - w_)**.5).sum()
         w_ = w[:, i].copy()
     return t_cost
 
@@ -84,7 +84,7 @@ def evaluate_t_costs(w, params):
 def evaluate_sr(params, w, t_cost):
     """
     Evaluates the Sharpe Ratio (SR) over multiple horizons.
-    
+
     :param params: (list) A list of dictionaries that contain values
      for ('c', 'mean', 'cov'), where 'c' is the relative transaction costs,
      and 'mean' and 'cov' are the forecasted mean and variance across assets.
@@ -99,7 +99,7 @@ def evaluate_sr(params, w, t_cost):
         params_ = params[h]
         mean += np.dot(w[:, h].T, params_['mean'])[0] - t_cost[h]
         cov += np.dot(w[:, h].T, np.dot(params_['cov'], w[:, h]))
-    sr = mean/cov**.5'
+    sr = mean/cov**.5
     return sr
 
 
@@ -108,7 +108,7 @@ def dynamic_optimal_portfolio(params, k=None):
     Dynamically calculate the optimal portfolio given the units of
     capital to allocate 'k', and the parameters describing the
     relative transaction costs, means, and variances, 'params'.
-    
+
     :param params: (list) A list of dictionaries that contain values
      for ('c', 'mean', 'cov'), where 'c' is the relative transaction costs,
      and 'mean' and 'cov' are the forecasted mean and variance across assets.
@@ -122,13 +122,14 @@ def dynamic_optimal_portfolio(params, k=None):
     n = params[0]['mean'].shape[0]
     w_all = get_all_weights(k, n)
     sr = None
-    
+
     # 2) Generate trajectories as cartesian product.
     for prod_ in product(w_all.T, repeat=len(params)):
         w_ = np.array(prod_).T  # Concatenate product into a trajectory.
         t_cost_ = evaluate_t_costs(w_, params)
         sr_ = evaluate_sr(params, w_, t_cost_)  # Evaluate trajectory.
-        if (sr is None) | (sr < sr_):
+        if (sr is None) or (sr < sr_):
             sr = sr_
             w = w_.copy()
     return w
+

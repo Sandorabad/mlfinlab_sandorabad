@@ -10,6 +10,7 @@
 """
 
 # Imports.
+import numpy as np
 
 
 # =====================================================
@@ -18,7 +19,7 @@ def random_matrix_with_rank(n_samples, n_cols, rank, sigma=0, hom_noise=True):
     """
     Produce a random 'n_samples'-by-'n_cols' matrix 'X' with given rank,
     and apply a specified random noise.
-    
+
     :param n_samples: (int) Number of rows to appear in the matrix.
     :param n_cols: (int) Number of column to appear in the matrix.
     :param rank: (int) The rank of the matrix.
@@ -36,3 +37,34 @@ def random_matrix_with_rank(n_samples, n_cols, rank, sigma=0, hom_noise=True):
         sigmas = sigma * (rng.rand(n_cols)+.5)  # Adding heteroscedastic noise.
         X += rng.randn(n_samples, n_cols) * sigmas
     return X
+
+
+# ==============================================
+# SNIPPET 21.5 GENERATE THE PROBLEM'S PARAMETERS
+def gen_mean(size):
+    """
+    Generates a vector of random numbers from a standard
+    normal distribution.
+
+    :param size: (int) The shape of the resulting array will be ('size', 1).
+
+    :return: (numpy.array) A ('size', 1) array of random numbers.
+    """
+    return np.random.normal(size=(size, 1))
+
+
+def stat_opt_portf(cov, a):
+    """
+    Calculates the static optimal portfolio, the solution to the
+    unconstrained portfolio optimization problem.
+
+    :param cov: (numpy.array) A covariance matrix.
+    :param a: ???
+    :return: weights?
+    """
+    cov_inv = np.linalg.inv(cov)
+    w = np.dot(cov_inv, a)
+    w /= np.dot(np.dot(a.T, cov_inv), a)  # np.dot(a.T, a) == 1
+    w /= abs(w).sum()  # re-scale for full investment
+    return w
+
