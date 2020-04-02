@@ -60,7 +60,8 @@ def mean_decrease_impurity(model, feature_names):
     return importance
 
 
-def mean_decrease_accuracy(model, X, y, cv_gen, sample_weight_train=None, sample_weight_score=None, scoring=log_loss):
+def mean_decrease_accuracy(model, X, y, cv_gen, sample_weight_train=None, sample_weight_score=None, scoring=log_loss,
+                           n_rounds=1, random_state=None):
     """
     Snippet 8.3, page 116-117. MDA Feature Importance
 
@@ -89,9 +90,16 @@ def mean_decrease_accuracy(model, X, y, cv_gen, sample_weight_train=None, sample
     :param cv_gen: (cross_validation.PurgedKFold): Cross-validation object.
     :param sample_weight_train: A numpy array of sample weights used to train the model for each record in the dataset.
     :param sample_weight_score: A numpy array of sample weights used to evaluate the model quality.
+    :param n_rounds: (int) number of random permutations for each feature
+    :param random_state: (int) random state seed
     :param scoring: (function): Scoring function used to determine importance.
     :return: (pd.DataFrame): Mean and standard deviation of feature importance.
     """
+
+    if random_state is None:
+        rand_shuffler = np.random.RandomState(42)
+    else:
+        rand_shuffler = np.random.RandomState(random_state)
 
     if sample_weight_train is None:
         sample_weight_train = np.ones((X.shape[0],))
@@ -115,17 +123,19 @@ def mean_decrease_accuracy(model, X, y, cv_gen, sample_weight_train=None, sample
 
         # Get feature specific metric on out-of-sample fold
         for j in X.columns:
-            X1_ = X.iloc[test, :].copy(deep=True)
-            np.random.shuffle(X1_[j].values)  # Permutation of a single column
-            if scoring == log_loss:
-                prob = fit.predict_proba(X1_)
-                features_metrics_values.loc[i, j] = -scoring(y.iloc[test], prob,
-                                                             sample_weight=sample_weight_score[test],
-                                                             labels=model.classes_)
-            else:
-                pred = fit.predict(X1_)
-                features_metrics_values.loc[i, j] = scoring(y.iloc[test], pred,
-                                                            sample_weight=sample_weight_score[test])
+            permutation_scores = []  # Array of oos scores for each random permutation round
+            for _ in range(n_rounds):
+                X1_ = X.iloc[test, :].copy(deep=True)
+                rand_shuffler.shuffle(X1_[j].values)  # Permutation of a single column
+                if scoring == log_loss:
+                    prob = fit.predict_proba(X1_)
+                    permutation_scores.append(-scoring(y.iloc[test], prob, sample_weight=sample_weight_score[test],
+                                                       labels=model.classes_))
+                else:
+                    pred = fit.predict(X1_)
+                    permutation_scores.append(scoring(y.iloc[test], pred, sample_weight=sample_weight_score[test]))
+
+            features_metrics_values.loc[i, j] = np.mean(permutation_scores)  # Score of i-th fold, j-feature
 
     importance = (-features_metrics_values).add(fold_metrics_values, axis=0)
     if scoring == log_loss:

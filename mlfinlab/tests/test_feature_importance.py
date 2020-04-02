@@ -177,7 +177,8 @@ class TestFeatureImportance(unittest.TestCase):
         # MDA feature importance
         mda_feat_imp_log_loss = mean_decrease_accuracy(sb_clf, self.X_train, self.y_train_clf, cv_gen,
                                                        sample_weight_train=np.ones((self.X_train.shape[0],)),
-                                                       sample_weight_score=np.ones((self.X_train.shape[0],)))
+                                                       sample_weight_score=np.ones((self.X_train.shape[0],)),
+                                                       n_rounds=2, random_state=42)
         mda_feat_imp_f1 = mean_decrease_accuracy(sb_clf, self.X_train, self.y_train_clf,
                                                  cv_gen, scoring=f1_score)
         # SFI feature importance
