@@ -147,6 +147,20 @@ Implementations
 * :doc:`implementations/sb_bagging`
 * :doc:`implementations/structural_breaks`
 
+Recipes
+#######
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Recipes
+
+    recipes/Financial Data Structure
+    recipes/Labeling
+
+
+* :doc:'recipes/Financial Data Structure'
+* :doc:'recipes/Labeling'
+
 Additional Information
 ######################
 .. toctree::
