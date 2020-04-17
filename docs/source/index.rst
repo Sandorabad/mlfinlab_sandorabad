@@ -132,6 +132,17 @@ Built With
     implementations/labeling_tail_sets
 
 .. toctree::
+    :maxdepth: 2
+    :caption: Modelling
+    :hidden:
+
+    implementations/sampling
+    implementations/sb_bagging
+    implementations/feature_importance
+    implementations/cross_validation
+    implementations/EF3M
+    implementations/bet_sizing
+
 .. toctree::
     :maxdepth: 2
     :caption: Clustering
@@ -169,7 +180,6 @@ Built With
     recipes/Financial Data Structure
     recipes/Labeling
     recipes/Sampling and Weight
-
 
 * :doc:'recipes/Financial Data Structure'
 * :doc:'recipes/Labeling'
