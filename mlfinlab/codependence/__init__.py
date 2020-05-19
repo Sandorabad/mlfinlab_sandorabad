@@ -1,5 +1,5 @@
 """
-Varoius codependence measure: mutual info, distance correlations, variation of information
+Varius codependence measure: mutual info, distance correlations, variation of information, Granger causality
 """
 
 from mlfinlab.codependence.correlation import (angular_distance, absolute_angular_distance, squared_angular_distance, \
