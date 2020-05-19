@@ -26,7 +26,6 @@ def granger_causality_test(data: pd.DataFrame, reverse: bool, lag: int = 3,
     between assets or not.
     """
 
-    pairs_list = []  # Store the pairs of the corresponding assets
     save_index = []  # Store the indexes
     causality_indicator_list = []  # Store the indicator value
     for i in range(data.shape[1]):
@@ -43,23 +42,27 @@ def granger_causality_test(data: pd.DataFrame, reverse: bool, lag: int = 3,
                                                      maxlag=lag,
                                                      addconst=True,
                                                      verbose=False)
-                # Check whether the Granger causality test accepts the null hypothesis or not
+                 # Check whether the Granger causality test accepts the null hypothesis or not
                 if test_results[3][0]['ssr_ftest'][1] < significance_level:
                     # When j Granger causes i, then the indicator receives the value 1
                     causality_indicator: int = 1
                 else:
                     # When j does not Granger cause i, then the indicator receives the value 0
                     causality_indicator = 0
-                # Store the index and the pairs
-                save_index.append(pairs_list)
-                # Store the output of indicator function
-                causality_indicator_list.append(causality_indicator)
+            else:
+                # By definition, j -> j = 0
+                causality_indicator = 0
 
-                # Store causal pairs
-                if reverse is (False or None):
-                    pairs_list = (data.columns[i], data.columns[j])
-                else:
-                    pairs_list = (data.columns[j], data.columns[i])
+            # Store pairs with causal relationship
+            if reverse is (False or None):
+                pairs_list = (data.columns[i], data.columns[j])
+            else:
+                pairs_list = (data.columns[j], data.columns[i])
+
+            # Store the index and the pairs
+            save_index.append(pairs_list)
+            # Store the output of indicator function
+            causality_indicator_list.append(causality_indicator)
 
     # Create a DataFrame which consists of Granger causality information
     gc_indicator = pd.DataFrame(causality_indicator_list, columns=['Indicator'],
