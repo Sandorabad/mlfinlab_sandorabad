@@ -75,7 +75,6 @@ class TestBacktestStatistics(unittest.TestCase):
 
         self.assertTrue(test_flat_flip.sort_values().equals(flattenings_and_flips.sort_values()))
         self.assertTrue(flattenings_and_flips_last.sort_values().equals(flattenings_and_flips.sort_values()))
-        self.assertTrue(False)
 
     def test_average_holding_period(self):
         """
